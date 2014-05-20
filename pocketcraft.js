@@ -9,7 +9,7 @@ var opts = {
   render: render
 }
 
-var game = new Phaser.Game(WIDTH, HEIGHT, Phaser.AUTO, container_id || 'phaser-container', opts);
+var game = new Phaser.Game(WIDTH, HEIGHT, Phaser.WEBGL, container_id || 'phaser-container', opts);
 
 function preload() {
   game.load.spritesheet('sheet', 'assets/sheet.png', 16, 16);
@@ -25,15 +25,19 @@ function create() {
   sprite.animations.add('walk', [0, 1], 2, true);
   sprite.animations.play('walk');
 
+  sprite.tint = 0xBBBBFF;
+
   sprite = game.add.sprite(game.world.centerX + 20, game.world.centerY, 'sheet');
   sprite.anchor.setTo(.5, 1);
 
   sprite.animations.add('walk', [2, 3], 2, true);
   sprite.animations.play('walk');
+
+  sprite.tint = 0xBBFFBB;
 }
 
 function render() {
 
-  game.debug.spriteBounds(sprite);
+  //game.debug.spriteBounds(sprite);
 
 }
