@@ -14,7 +14,7 @@ var game = new Phaser.Game(WIDTH, HEIGHT, Phaser.CANVAS, container_id || 'phaser
 
 function preload() {
   game.stage.backgroundColor = 0x222222;
-  game.stage.backgroundColor = 0xEECCEE;
+  //game.stage.backgroundColor = 0xEECCEE;
 
   game.load.spritesheet('sheet', 'assets/gfx/sheet.png', 16, 16);
 }
@@ -25,7 +25,7 @@ var sprite;
 var entities;
 var selectedUnits = [];
 
-var SHIFT_KEY = false;
+var SHIFT_KEY;
 
 function create() {
   /**
@@ -36,6 +36,8 @@ function create() {
   /**
     * Initialize input
     */
+  SHIFT_KEY = game.input.keyboard.addKey(Phaser.Keyboard.SHIFT);
+
   line = new Phaser.Line(0,0,0,0); // selection line
   game.input.onDown.add(function() { // mouse down
     if (!selecting) {
@@ -52,24 +54,28 @@ function create() {
       var hw = (line.end.x - line.start.x) / 2;
       var hh = (line.end.y - line.start.y) / 2;
       // center
-      var cx = line.start.x + hw;
-      var cy = line.start.y + hh;
-      hw = Math.abs(hw);
-      hh = Math.abs(hh);
+      var cx = (line.start.x + hw) | 0;
+      var cy = (line.start.y + hh) | 0;
+      hw = Math.abs(hw) | 0;
+      hh = Math.abs(hh) | 0;
 
-      if (!SHIFT_KEY)
-        selectedUnits.length = 0;
-      
-      selectedUnits.length = 0;
+      if (!SHIFT_KEY.isDown) { // clear the selection list
+        while (selectedUnits.length > 0) {
+          var u = selectedUnits.pop();
+          u.selectedUnit = false;
+        }
+      }
 
       console.log("cx: " + (cx | 0) + ", cy: " + (cy | 0) + ", hw: " + (hw | 0) + ", hh: " + (hh | 0));
 
       // check through AABB
       for (var i = 0; i < entities.length; i++) {
         var e = entities.getAt(i);
+        if (e.selectedUnit) continue;
         if (Math.abs( e.x - cx ) > e.hw + hw ) continue;
         if (Math.abs( e.y - cy ) > e.hh + hh ) continue;
         // there's an overlap
+        e.selectedUnit = true;
         selectedUnits.push(e);
       }
 
@@ -125,9 +131,9 @@ function render() {
   for (var i = 0; i < selectedUnits.length; i++) {
     var u = selectedUnits[i];
     //game.debug.rectangle(u);
-    game.debug.geom( new Phaser.Rectangle(u.x - u.hw, u.y - u.hh, u.w, u.h), '#ffffff' );
+    //game.debug.geom(new Phaser.Rectangle(u.x - u.hw, u.y - u.hh, u.w, u.h), '#ffffff', false);
+    game.debug.geom( u.rect, '#bfeebf', false);
     //game.debug.rectangle(u);
-    game.debug.body(u);
   }
 }
 
@@ -141,10 +147,13 @@ function Unit(x,y,team,hexColor) {
   this.anchor.setTo(.5, 1);
   this.tint = hexColor || 0xFFFFFF;
   this.team = team || 9;
+  this.selectedUnit = false;
   this.w = 10;
   this.h = 4;
   this.hw = (this.w / 2) | 0; // px
   this.hh = (this.h / 2) | 0; // px
+  this.rect = new Phaser.Rectangle(this.x - this.width / 2, this.y - this.height + 1,
+   this.width, this.height);
 };
 Unit.prototype = Object.create(Phaser.Sprite.prototype);
 Unit.prototype.constructor = Unit;
