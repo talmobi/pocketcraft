@@ -26,6 +26,7 @@ var entities;
 var selectedUnits = [];
 
 var SHIFT_KEY;
+var mouse;
 
 function create() {
   /**
@@ -36,53 +37,16 @@ function create() {
   /**
     * Initialize input
     */
-  SHIFT_KEY = game.input.keyboard.addKey(Phaser.Keyboard.SHIFT);
+  // disable default right click
+  document.onclick = function(e) { if(e.button == 2 || e.button == 3) { return false; } };
+  mouse = game.input.mouse;
+  mouse.capture = true; // prevent default mouse behaviour
+  game.input.maxPointers = 1; // max pointers
+  SHIFT_KEY = game.input.keyboard.addKey(Phaser.Keyboard.SHIFT); // shift key
 
   line = new Phaser.Line(0,0,0,0); // selection line
-  game.input.onDown.add(function() { // mouse down
-    if (!selecting) {
-      selecting = true;
-      line.start.set(game.input.activePointer.x, game.input.activePointer.y);
-    }
-  }, this);
-  game.input.onUp.add(function() { // mouse up
-    if (selecting) {
-      selecting = false;
-      line.end.set(game.input.activePointer.x, game.input.activePointer.y);
-
-      // half width, height
-      var hw = (line.end.x - line.start.x) / 2;
-      var hh = (line.end.y - line.start.y) / 2;
-      // center
-      var cx = (line.start.x + hw) | 0;
-      var cy = (line.start.y + hh) | 0;
-      hw = Math.abs(hw) | 0;
-      hh = Math.abs(hh) | 0;
-
-      if (!SHIFT_KEY.isDown) { // clear the selection list
-        while (selectedUnits.length > 0) {
-          var u = selectedUnits.pop();
-          u.selectedUnit = false;
-        }
-      }
-
-      console.log("cx: " + (cx | 0) + ", cy: " + (cy | 0) + ", hw: " + (hw | 0) + ", hh: " + (hh | 0));
-
-      // check through AABB
-      for (var i = 0; i < entities.length; i++) {
-        var e = entities.getAt(i);
-        if (e.selectedUnit) continue;
-        if (Math.abs( e.x - cx ) > e.hw + hw ) continue;
-        if (Math.abs( e.y - cy ) > e.hh + hh ) continue;
-        // there's an overlap
-        e.selectedUnit = true;
-        selectedUnits.push(e);
-      }
-
-      console.log("num of selected: " + selectedUnits.length);
-    }
-  }, this);
-
+  mouse.mouseDownCallback = handleOnDown;
+  mouse.mouseUpCallback = handleOnUp;
 
   /**
     * Test
@@ -138,6 +102,11 @@ function render() {
 }
 
 
+
+
+/**
+  * Units
+  */
 function Unit(x,y,team,hexColor) {
   // call the sprite constructor
   Phaser.Sprite.call(this, game, x, y, 'sheet');
@@ -154,11 +123,34 @@ function Unit(x,y,team,hexColor) {
   this.hh = (this.h / 2) | 0; // px
   this.rect = new Phaser.Rectangle(this.x - this.width / 2, this.y - this.height + 1,
    this.width, this.height);
+
+  this.target = null;
+  this.tx = x;
+  this.ty = y;
 };
 Unit.prototype = Object.create(Phaser.Sprite.prototype);
 Unit.prototype.constructor = Unit;
-Unit.prototype.checkSelect = function(x0, y0, x1, y1) {
-  console.log(this instanceof Phaser.Sprite);
+Unit.prototype.setTarget = function(tx,ty) {
+  this.tx = tx | 0;
+  this.ty = ty | 0;
+}
+Unit.prototype.update = function() { // called automatically by phaser
+  if (this.x + 1 < this.tx)
+    this.x += 1;
+  else
+    if (this.x - 1 > this.tx)
+      this.x -= 1;
+
+  if (this.y + 1 < this.ty)
+    this.y += 1;
+  else
+    if (this.y - 1 > this.ty)
+      this.y -= 1;
+  if (this.deltaX != 0 || this.deltaY != 0) {
+    // update rect position
+    this.rect.x = this.x - this.width / 2;
+    this.rect.y = this.y - this.height + 1;
+  }
 }
 
 /**
@@ -173,3 +165,71 @@ function Harvester(x,y,team,hexColor) {
 };
 Harvester.prototype = Object.create(Unit.prototype);
 Harvester.prototype.constructor = Harvester;
+
+
+
+
+
+
+/**
+  * Mouse Input
+  */
+function handleOnDown() { // mouse down
+  switch (mouse.button) {
+    case Phaser.Mouse.LEFT_BUTTON:
+      if (!selecting) {
+        selecting = true;
+        line.start.set(game.input.activePointer.x, game.input.activePointer.y);
+      }
+      break;
+    case Phaser.Mouse.RIGHT_BUTTON:
+      for (var i = 0; i < selectedUnits.length; i++) {
+        var u = selectedUnits[i];
+        u.setTarget(game.input.worldX, game.input.worldY);
+      }
+      break;
+  }
+};
+function handleOnUp() { // mouse up
+  mouse.event.preventDefault();
+
+  switch (mouse.button) {
+    default:
+      if (selecting) {
+        selecting = false;
+        line.end.set(game.input.activePointer.x, game.input.activePointer.y);
+
+        // half width, height
+        var hw = (line.end.x - line.start.x) / 2;
+        var hh = (line.end.y - line.start.y) / 2;
+        // center
+        var cx = (line.start.x + hw) | 0;
+        var cy = (line.start.y + hh) | 0;
+        hw = Math.abs(hw) | 0;
+        hh = Math.abs(hh) | 0;
+
+        if (!SHIFT_KEY.isDown) { // clear the selection list
+          while (selectedUnits.length > 0) {
+            var u = selectedUnits.pop();
+            u.selectedUnit = false;
+          }
+        }
+
+        console.log("cx: " + (cx | 0) + ", cy: " + (cy | 0) + ", hw: " + (hw | 0) + ", hh: " + (hh | 0));
+
+        // check through AABB
+        for (var i = 0; i < entities.length; i++) {
+          var e = entities.getAt(i);
+          if (e.selectedUnit) continue;
+          if (Math.abs( e.x - cx ) > e.hw + hw ) continue;
+          if (Math.abs( e.y - cy ) > e.hh + hh ) continue;
+          // there's an overlap
+          e.selectedUnit = true;
+          selectedUnits.push(e);
+        }
+
+        console.log("num of selected: " + selectedUnits.length);
+      }
+      break;
+  }
+};
