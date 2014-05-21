@@ -76,7 +76,7 @@ function create() {
 }
 
 function update() {
-
+  game.physics.arcade.collide(entities);
 }
 
 function render() {
@@ -127,6 +127,15 @@ function Unit(x,y,team,hexColor) {
   this.target = null;
   this.tx = x;
   this.ty = y;
+
+  // Physics test
+  game.physics.enable(this, Phaser.Physics.ARCADE);
+  this.body.width = this.w;
+  this.body.height = this.h;
+  this.body.collideWorldBounds = true;
+  this.body.bounce.x = 0;
+  this.body.bounce.y = 0;
+  this.body.minBounceVelocity = 0;
 };
 Unit.prototype = Object.create(Phaser.Sprite.prototype);
 Unit.prototype.constructor = Unit;
@@ -136,16 +145,16 @@ Unit.prototype.setTarget = function(tx,ty) {
 }
 Unit.prototype.update = function() { // called automatically by phaser
   if (this.x + 1 < this.tx)
-    this.x += 1;
+    this.body.velocity.x = 10;
   else
     if (this.x - 1 > this.tx)
-      this.x -= 1;
+      this.body.velocity.x = -10;
 
   if (this.y + 1 < this.ty)
-    this.y += 1;
+    this.body.velocity.y = 10;
   else
     if (this.y - 1 > this.ty)
-      this.y -= 1;
+      this.body.velocity.y = -10;
   if (this.deltaX != 0 || this.deltaY != 0) {
     // update rect position
     this.rect.x = this.x - this.width / 2;
