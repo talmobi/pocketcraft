@@ -13,6 +13,15 @@ var WIDTH = 568;
 var HEIGHT = 320;
 var container_id = 'phaser-container'
 
+var selecting = false;
+var line;
+var sprite;
+var entities;
+var selectedUnits = [];
+
+var SHIFT_KEY;
+var mouse;
+
 var opts = {
   preload: preload,
   create: create,
@@ -25,15 +34,32 @@ var game = new Phaser.Game(WIDTH, HEIGHT, Phaser.CANVAS, container_id || 'phaser
 // set random seed
 game.rnd.sow(123);
 
+// GLOBAL object
 var GLOBAL = {
   ticks: 0, // total ticks
   rnd: function(n) {
     return game.rnd.integerInRange(0, n);
   },
 
+  AABB: function(e1, e2, x, y) {
+    if (Math.abs( e1.x - (x || e2.x) ) > e1.hw + e2.hw ) return false;
+    if (Math.abs( e1.y - (y || e2.y) ) > e1.hh + e2.hh ) return false;
+    // there's a collision
+    return true; // there's a collision
+  },
+
   Units: {
     State: {
       MOVE: 'MOVE', STAND: 'STAND', HOLD: 'HOLD', AMOVE: 'AMOVE', PATROL: 'PATROL'
+    },
+    isFree: function(u, x, y) {
+      for (var i = 0; i < entities.length; i++) {
+        var e = entities.getAt(i);
+        if (e === u) continue; // skip self
+        if (GLOBAL.AABB(e, u, x, y))
+          return false;
+      }
+      return true;
     }
   }
 }
@@ -48,14 +74,7 @@ function preload() {
   game.load.spritesheet('sheet', 'assets/gfx/sheet.png', 16, 16);
 }
 
-var selecting = false;
-var line;
-var sprite;
-var entities;
-var selectedUnits = [];
 
-var SHIFT_KEY;
-var mouse;
 
 function create() {
   /**
@@ -208,12 +227,22 @@ Unit.prototype.update = function() { // called automatically by phaser
       break;
 
     case GLOBAL.Units.State.WALK:
-      // move towards destination
+      // calculate direction
       var dx = this.x - this.tx;
       var dy = this.y - this.ty;
       var len = Math.sqrt( dx * dx + dy * dy);
-      this.x -= dx / len;
-      this.y -= dy / len;
+
+      // check collisions
+      var nx = this.x - (dx / len) * this.speed;
+      var ny = this.y - (dy / len) * this.speed;
+      if (GLOBAL.Units.isFree(this, nx, ny)) {
+        this.x = nx;
+        this.y = ny;
+      } else {
+        console.log("Can't move!");
+        this.setState(GLOBAL.Units.State.STAND);
+        break;
+      }
 
       // update rect position
       this.rect.x = this.x - this.width / 2;
@@ -221,14 +250,15 @@ Unit.prototype.update = function() { // called automatically by phaser
 
       if (Math.abs( this.x - this.tx ) > this.hw + 2 ) return;
       if (Math.abs( this.y - this.ty ) > this.hh + 2 ) return;
+
       // reached destination
-      this.x = (this.x + 0.5) | 0;
-      this.y = (this.y + 0.5) | 0;
+      nx = (this.x + 0.5) | 0;
+      ny = (this.y + 0.5) | 0;
+      this.x = nx;
+      this.y = ny;
       // update rect position
       this.rect.x = (this.x - this.width / 2) | 0;
       this.rect.y = (this.y - this.height + 1) | 0;
-      //this.rect.x += .5;
-      //this.rect.y += .5;
       this.setState(GLOBAL.Units.State.STAND);
       break;
   }
@@ -262,12 +292,12 @@ function Harvester(x,y,team,hexColor) {
   this.setState(GLOBAL.Units.State.STAND);
 
   // blink timer
-  this.blinkTicks = GLOBAL.ticks + 256 + GLOBAL.rnd(512);
+  this.blinkTicks = GLOBAL.ticks + 64 + GLOBAL.rnd(128);
   this.timers.push(function() {
     //console.log('timer tick! : ' + this.blinkTicks);
     if (GLOBAL.ticks > this.blinkTicks) {
-      console.log('should blink!');
-      this.blinkTicks = GLOBAL.ticks + 256 + GLOBAL.rnd(512);
+      //console.log('should blink!');
+      this.blinkTicks = GLOBAL.ticks + 64 + GLOBAL.rnd(128);
       if (this.state === GLOBAL.Units.State.STAND) {
         this.animations.play('blink'); 
       }
