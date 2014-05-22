@@ -1,3 +1,14 @@
+/**
+  * Stats.js mrdoob - github
+  */
+var stats = new Stats();
+stats.setMode(0); // 0: fps, 1: ms
+// Align top-left
+stats.domElement.style.position = 'absolute';
+stats.domElement.style.left = '10px';
+stats.domElement.style.top = '10px';
+document.body.appendChild( stats.domElement );
+
 
 var WIDTH = 568;
 var HEIGHT = 320;
@@ -76,10 +87,14 @@ function create() {
 }
 
 function update() {
+  stats.begin();
+
   game.physics.arcade.collide(entities);
 }
 
 function render() {
+  if (!game.paused)
+    stats.end();
 
   //game.debug.spriteBounds(sprite);
 
