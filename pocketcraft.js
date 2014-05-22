@@ -9,7 +9,6 @@ stats.domElement.style.left = '10px';
 stats.domElement.style.top = '10px';
 document.body.appendChild( stats.domElement );
 
-
 var WIDTH = 568;
 var HEIGHT = 320;
 var container_id = 'phaser-container'
@@ -22,6 +21,25 @@ var opts = {
 }
 
 var game = new Phaser.Game(WIDTH, HEIGHT, Phaser.CANVAS, container_id || 'phaser-container', opts);
+
+// set random seed
+game.rnd.sow(123);
+
+var GLOBAL = {
+  ticks: 0, // total ticks
+  rnd: function(n) {
+    return game.rnd.integerInRange(0, n);
+  },
+
+  Units: {
+    State: {
+      MOVE: 'MOVE', STAND: 'STAND', HOLD: 'HOLD', AMOVE: 'AMOVE', PATROL: 'PATROL'
+    }
+  }
+}
+
+
+
 
 function preload() {
   game.stage.backgroundColor = 0x222222;
@@ -69,8 +87,6 @@ function create() {
     var x = game.world.centerX + 40 + 20 * i;
     var y = game.world.centerY + 40;
     var h = new Harvester(x, y, null, 0xAAFFBB >> i);
-    h.animations.add('walk', [2 + i * 2, 3 + i * 2], 2, true);
-    h.animations.play('walk');
     entities.add(h);
   }
 
@@ -87,6 +103,7 @@ function create() {
 }
 
 function update() {
+  GLOBAL.ticks++;
   stats.begin();
 
   game.physics.arcade.collide(entities);
@@ -145,38 +162,40 @@ function Unit(x,y,team,hexColor) {
 
   this.speed = .75;
 
-  // unit states
-  //this.state = this.State.STAND;
+  this.timers = [];
+
+  this.state = GLOBAL.Units.State.STAND;
 };
+// configure Unit prototype
 Unit.prototype = Object.create(Phaser.Sprite.prototype);
-Unit.prototype.State = {
+/*Unit.prototype.State = {
   MOVE: 'MOVE', STAND: 'STAND', HOLD: 'HOLD', AMOVE: 'AMOVE', PATROL: 'PATROL'
-};
+};*/
 Unit.prototype.constructor = Unit;
 Unit.prototype.setTarget = function(tx,ty) {
-  console.log('setting target');
+  //console.log('setting target');
   this.tx = tx | 0;
   this.ty = ty | 0;
 
   if (Math.abs( this.x - tx ) < this.hw + 2 )
   if (Math.abs( this.y - ty ) < this.hh + 2 ) return;
 
-  this.setState(this.State.WALK);
+  this.setState(GLOBAL.Units.State.WALK);
 };
 Unit.prototype.setState = function(state) {
-  console.log('setting state');
+  //console.log('setting state');
   if (this.state === state)
     return;
 
   switch (state) {
-    case this.State.STAND:
+    case GLOBAL.Units.State.STAND:
       this.state = state;
       //this.animations.play('idle');
       this.animations.play('blink');
       //this.animations.play('stand');
       break;
 
-    case this.State.WALK:
+    case GLOBAL.Units.State.WALK:
       this.state = state;
       this.animations.play('walk');
       break;
@@ -184,11 +203,11 @@ Unit.prototype.setState = function(state) {
 };
 Unit.prototype.update = function() { // called automatically by phaser
   switch (this.state) {
-    case this.State.STAND:
+    case GLOBAL.Units.State.STAND:
       // auto target and attack nearby enemies
       break;
 
-    case this.State.WALK:
+    case GLOBAL.Units.State.WALK:
       // move towards destination
       var dx = this.x - this.tx;
       var dy = this.y - this.ty;
@@ -210,32 +229,15 @@ Unit.prototype.update = function() { // called automatically by phaser
       this.rect.y = (this.y - this.height + 1) | 0;
       //this.rect.x += .5;
       //this.rect.y += .5;
-      this.setState(this.State.STAND);
+      this.setState(GLOBAL.Units.State.STAND);
       break;
   }
 
-  /*
-  var x = Math.cos() *;
-  if (this.x + 1 < this.tx)
-    this.x += this.speed;
-  else
-    if (this.x - 1 > this.tx)
-      this.x += -this.speed;
-
-  if (this.y + 1 < this.ty)
-    this.y += this.speed;
-  else
-    if (this.y - 1 > this.ty)
-      this.y += -this.speed;
-  if (this.deltaX != 0 || this.deltaY != 0) { // if moving
-    // update rect position
-    this.rect.x = this.x - this.width / 2;
-    this.rect.y = this.y - this.height + 1;
-    this.animations.play('walk');
-  } else {
-    this.animations.play('stand');
+  // update timers
+  for (var i = 0; i < this.timers.length; i++) {
+    //console.log('timer called!');
+    this.timers[i].call(this);
   }
-  */
 }
 
 /**
@@ -245,18 +247,34 @@ function Harvester(x,y,team,hexColor) {
   // call the Unit constructor
   Unit.call(this, x, y, team, hexColor);
 
-  this.animations.add('walk', [4, 5], 8, true);
+  // init animations
+  this.animations.add('walk', [5, 4], 8, true);
   this.animations.add('stand', [0], 2, false);
   this.animations.add('hold', [0,1,2,0], 2, false);
-  this.animations.add('idle', [
+  this.animations.add('jump', [
     30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,30
     ], 8, false);
   this.animations.add('blink', [0,3,0], 4, false);
+  this.animations.add('sit', [0,6,6,0], 1, false);
+
   this.animations.play('stand');
 
-  //this.state = Unit.State.STAND;
-  this.setState(this.State.STAND);
+  this.setState(GLOBAL.Units.State.STAND);
+
+  // blink timer
+  this.blinkTicks = GLOBAL.ticks + 256 + GLOBAL.rnd(512);
+  this.timers.push(function() {
+    //console.log('timer tick! : ' + this.blinkTicks);
+    if (GLOBAL.ticks > this.blinkTicks) {
+      console.log('should blink!');
+      this.blinkTicks = GLOBAL.ticks + 256 + GLOBAL.rnd(512);
+      if (this.state === GLOBAL.Units.State.STAND) {
+        this.animations.play('blink'); 
+      }
+    }
+  });
 };
+// configure Harvester prototype
 Harvester.prototype = Object.create(Unit.prototype);
 Harvester.prototype.constructor = Harvester;
 
