@@ -143,38 +143,99 @@ function Unit(x,y,team,hexColor) {
   this.tx = x;
   this.ty = y;
 
-  // Physics test
-  game.physics.enable(this, Phaser.Physics.ARCADE);
-  this.body.width = this.w;
-  this.body.height = this.h;
-  this.body.collideWorldBounds = true;
-  this.body.bounce.x = 0;
-  this.body.bounce.y = 0;
-  this.body.minBounceVelocity = 0;
+  this.speed = .75;
+
+  // unit states
+  //this.state = this.State.STAND;
 };
 Unit.prototype = Object.create(Phaser.Sprite.prototype);
+Unit.prototype.State = {
+  MOVE: 'MOVE', STAND: 'STAND', HOLD: 'HOLD', AMOVE: 'AMOVE', PATROL: 'PATROL'
+};
 Unit.prototype.constructor = Unit;
 Unit.prototype.setTarget = function(tx,ty) {
+  console.log('setting target');
   this.tx = tx | 0;
   this.ty = ty | 0;
-}
+
+  if (Math.abs( this.x - tx ) < this.hw + 2 )
+  if (Math.abs( this.y - ty ) < this.hh + 2 ) return;
+
+  this.setState(this.State.WALK);
+};
+Unit.prototype.setState = function(state) {
+  console.log('setting state');
+  if (this.state === state)
+    return;
+
+  switch (state) {
+    case this.State.STAND:
+      this.state = state;
+      //this.animations.play('idle');
+      this.animations.play('blink');
+      //this.animations.play('stand');
+      break;
+
+    case this.State.WALK:
+      this.state = state;
+      this.animations.play('walk');
+      break;
+  }
+};
 Unit.prototype.update = function() { // called automatically by phaser
+  switch (this.state) {
+    case this.State.STAND:
+      // auto target and attack nearby enemies
+      break;
+
+    case this.State.WALK:
+      // move towards destination
+      var dx = this.x - this.tx;
+      var dy = this.y - this.ty;
+      var len = Math.sqrt( dx * dx + dy * dy);
+      this.x -= dx / len;
+      this.y -= dy / len;
+
+      // update rect position
+      this.rect.x = this.x - this.width / 2;
+      this.rect.y = this.y - this.height + 1;
+
+      if (Math.abs( this.x - this.tx ) > this.hw + 2 ) return;
+      if (Math.abs( this.y - this.ty ) > this.hh + 2 ) return;
+      // reached destination
+      this.x = (this.x + 0.5) | 0;
+      this.y = (this.y + 0.5) | 0;
+      // update rect position
+      this.rect.x = (this.x - this.width / 2) | 0;
+      this.rect.y = (this.y - this.height + 1) | 0;
+      //this.rect.x += .5;
+      //this.rect.y += .5;
+      this.setState(this.State.STAND);
+      break;
+  }
+
+  /*
+  var x = Math.cos() *;
   if (this.x + 1 < this.tx)
-    this.body.velocity.x = 10;
+    this.x += this.speed;
   else
     if (this.x - 1 > this.tx)
-      this.body.velocity.x = -10;
+      this.x += -this.speed;
 
   if (this.y + 1 < this.ty)
-    this.body.velocity.y = 10;
+    this.y += this.speed;
   else
     if (this.y - 1 > this.ty)
-      this.body.velocity.y = -10;
-  if (this.deltaX != 0 || this.deltaY != 0) {
+      this.y += -this.speed;
+  if (this.deltaX != 0 || this.deltaY != 0) { // if moving
     // update rect position
     this.rect.x = this.x - this.width / 2;
     this.rect.y = this.y - this.height + 1;
+    this.animations.play('walk');
+  } else {
+    this.animations.play('stand');
   }
+  */
 }
 
 /**
@@ -184,14 +245,20 @@ function Harvester(x,y,team,hexColor) {
   // call the Unit constructor
   Unit.call(this, x, y, team, hexColor);
 
-  this.animations.add('walk', [0, 1], 2, true);
-  this.animations.play('walk');
+  this.animations.add('walk', [4, 5], 8, true);
+  this.animations.add('stand', [0], 2, false);
+  this.animations.add('hold', [0,1,2,0], 2, false);
+  this.animations.add('idle', [
+    30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,30
+    ], 8, false);
+  this.animations.add('blink', [0,3,0], 4, false);
+  this.animations.play('stand');
+
+  //this.state = Unit.State.STAND;
+  this.setState(this.State.STAND);
 };
 Harvester.prototype = Object.create(Unit.prototype);
 Harvester.prototype.constructor = Harvester;
-
-
-
 
 
 
@@ -257,3 +324,11 @@ function handleOnUp() { // mouse up
       break;
   }
 };
+
+
+/**
+  * QuadTree
+  */
+function QuadTree(level, max) {
+
+}
