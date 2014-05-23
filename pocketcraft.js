@@ -69,7 +69,6 @@ var GLOBAL = {
 
 function preload() {
   game.stage.backgroundColor = 0x222222;
-  //game.stage.backgroundColor = 0xEECCEE;
 
   game.load.spritesheet('sheet', 'assets/gfx/sheet.png', 16, 16);
 }
@@ -112,7 +111,6 @@ function create() {
 
   var harvester = new Harvester(game.world.centerX + 10, game.world.centerY - 30, 0, 0xFFBBBB);
   entities.add(harvester);
-  //game.add.existing(harvester);
 
   /**
     * Scale game window
@@ -184,6 +182,8 @@ function Unit(x,y,team,hexColor) {
   this.timers = [];
 
   this.state = GLOBAL.Units.State.STAND;
+
+  this.pathWait = 0;
 };
 // configure Unit prototype
 Unit.prototype = Object.create(Phaser.Sprite.prototype);
@@ -240,7 +240,11 @@ Unit.prototype.update = function() { // called automatically by phaser
         this.y = ny;
       } else {
         console.log("Can't move!");
-        this.setState(GLOBAL.Units.State.STAND);
+        this.pathWait++;
+        if (this.pathWait > 30) {
+          this.setState(GLOBAL.Units.State.STAND);
+        }
+        //this.setState(GLOBAL.Units.State.STAND);
         break;
       }
 
