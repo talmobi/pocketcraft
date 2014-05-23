@@ -382,5 +382,5 @@ function handleOnUp() { // mouse up
   * QuadTree
   */
 function QuadTree(level, max) {
-
+  //TODO
 }
